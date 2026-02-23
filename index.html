@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Save the Date — Cris & Jose</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- INTRO -->
+  <div id="intro" class="intro-screen" role="button" tabindex="0" aria-label="Intro. Toca para continuar">
+    <div class="intro-bg" aria-hidden="true"></div>
+    <div class="intro-gradient" aria-hidden="true"></div>
+
+    <div id="flash" class="flash" aria-hidden="true"></div>
+
+    <div class="intro-content">
+      <div class="intro-kicker">Cris • Elián • Jose</div>
+
+      <div class="intro-msg show" id="introMsg1">
+        <span class="type" id="type1"></span><span class="caret" id="caret1">|</span>
+      </div>
+
+      <div class="intro-msg" id="introMsg2">
+        <span class="type" id="type2"></span><span class="caret" id="caret2">|</span>
+      </div>
+
+      <div class="intro-tap" id="introTap">Toca la pantalla</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main id="main" class="main-screen">
+    <section class="wrap">
+      <section class="card" aria-label="Save the Date">
+
+        <div class="headline">
+          <div class="small">SAVE THE DATE</div>
+          <h1>Cris <span class="amp">&amp;</span> Jose</h1>
+          <div class="meta">Granada</div>
+        </div>
+
+        <div class="scratch-area">
+          <div class="heart-stage" id="heartStage" aria-label="Rasca el corazón">
+            <!-- Fondo del hueco: purpurina -->
+            <canvas id="pit" class="heart-pit" aria-hidden="true"></canvas>
+
+            <!-- Texto revelado (encima del glitter) -->
+            <div class="heart-reveal" id="heartReveal">
+              <div class="heart-date">1 de Mayo 2026</div>
+              <div class="heart-time" id="hora">12:00</div>
+              <div class="heart-note">✨ ¡Nos casamos! ✨</div>
+            </div>
+
+            <!-- Capa rascable (oro) -->
+            <canvas id="scratch" class="heart-canvas"></canvas>
+
+            <!-- Shinny antes de rascar -->
+            <canvas id="shine" class="heart-shine" aria-hidden="true"></canvas>
+
+            <!-- Relieve / borde recorte (siempre visible) -->
+            <canvas id="bevel" class="heart-bevel" aria-hidden="true"></canvas>
+
+            <!-- Outline final tras completar -->
+            <canvas id="outline" class="heart-outline" aria-hidden="true"></canvas>
+          </div>
+
+          <div class="hint" id="hint">Rasca el corazón dorado para descubrir la hora</div>
+        </div>
+
+        <footer class="footer">
+          <span>Guárdate la fecha 💗</span>
+        </footer>
+      </section>
+
+      <div class="below">
+        <button class="btn" id="resetBtn" type="button">Reiniciar rasca</button>
+        <button class="btn" id="musicBtn" type="button">🎵 Música</button>
+        <span class="tip">Tip: en móvil, rasca con el dedo. En PC, con el ratón.</span>
+        <span class="music-status" id="musicStatus" aria-live="polite"></span>
+      </div>
+    </section>
+  </main>
+
+  <!-- POPUP -->
+  <div id="popup" class="popup" aria-hidden="true">
+    <div class="popup-card" role="dialog" aria-label="Mensaje">
+      <div class="popup-title">¡¡TE ESPERAMOS!!</div>
+      <div class="popup-sub">💛💛💛</div>
+    </div>
+  </div>
+
+  <audio id="bgm" src="assets/song.mp3" preload="auto" loop playsinline></audio>
+  <audio id="whoosh" src="assets/whoosh.mp3" preload="auto" playsinline></audio>
+
+  <script src="script.js"></script>
+</body>
+</html>
