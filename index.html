@@ -17,7 +17,6 @@
   <div id="intro" class="intro-screen" role="button" tabindex="0" aria-label="Intro. Toca para continuar">
     <div class="intro-bg" aria-hidden="true"></div>
     <div class="intro-gradient" aria-hidden="true"></div>
-
     <div id="flash" class="flash" aria-hidden="true"></div>
 
     <div class="intro-content">
@@ -48,30 +47,34 @@
 
         <div class="scratch-area">
           <div class="heart-stage" id="heartStage" aria-label="Rasca el corazón">
-            <!-- Fondo del hueco: purpurina -->
-            <canvas id="pit" class="heart-pit" aria-hidden="true"></canvas>
 
-            <!-- Texto revelado (encima del glitter) -->
+            <!-- Fondo del hueco (base “papel” del troquel) -->
+            <canvas id="base" class="layer base" aria-hidden="true"></canvas>
+
+            <!-- Lo que se revela al quitar purpurina -->
             <div class="heart-reveal" id="heartReveal">
               <div class="heart-date">1 de Mayo 2026</div>
               <div class="heart-time" id="hora">12:00</div>
               <div class="heart-note">✨ ¡Nos casamos! ✨</div>
             </div>
 
-            <!-- Capa rascable (oro) -->
-            <canvas id="scratch" class="heart-canvas"></canvas>
+            <!-- Purpurina (visible) — se borra mediante máscara interna -->
+            <canvas id="glitter" class="layer glitter"></canvas>
 
-            <!-- Shinny antes de rascar -->
-            <canvas id="shine" class="heart-shine" aria-hidden="true"></canvas>
+            <!-- Brillos (parpadeo) sobre la purpurina -->
+            <canvas id="shine" class="layer shine" aria-hidden="true"></canvas>
 
-            <!-- Relieve / borde recorte (siempre visible) -->
-            <canvas id="bevel" class="heart-bevel" aria-hidden="true"></canvas>
+            <!-- Partículas que “saltan” al rascar -->
+            <canvas id="particles" class="layer particles" aria-hidden="true"></canvas>
+
+            <!-- Troquelado (pared + borde) -->
+            <canvas id="bevel" class="layer bevel" aria-hidden="true"></canvas>
 
             <!-- Outline final tras completar -->
-            <canvas id="outline" class="heart-outline" aria-hidden="true"></canvas>
+            <canvas id="outline" class="layer outline" aria-hidden="true"></canvas>
           </div>
 
-          <div class="hint" id="hint">Rasca el corazón dorado para descubrir la hora</div>
+          <div class="hint" id="hint">Rasca la purpurina para descubrir la hora</div>
         </div>
 
         <footer class="footer">
@@ -82,7 +85,7 @@
       <div class="below">
         <button class="btn" id="resetBtn" type="button">Reiniciar rasca</button>
         <button class="btn" id="musicBtn" type="button">🎵 Música</button>
-        <span class="tip">Tip: en móvil, rasca con el dedo. En PC, con el ratón.</span>
+        <span class="tip">Tip: en móvil rasca con el dedo. En PC con el ratón.</span>
         <span class="music-status" id="musicStatus" aria-live="polite"></span>
       </div>
     </section>
