@@ -48,29 +48,29 @@
         <div class="scratch-area">
           <div class="heart-stage" id="heartStage" aria-label="Rasca el corazón">
 
-            <!-- Fondo del hueco (base “papel” del troquel) -->
+            <!-- Fondo del hueco (papel claro) -->
             <canvas id="base" class="layer base" aria-hidden="true"></canvas>
 
-            <!-- Lo que se revela al quitar purpurina -->
+            <!-- Lo que se revela (queda “dentro” del hueco) -->
             <div class="heart-reveal" id="heartReveal">
               <div class="heart-date">1 de Mayo 2026</div>
               <div class="heart-time" id="hora">12:00</div>
               <div class="heart-note">✨ ¡Nos casamos! ✨</div>
             </div>
 
-            <!-- Purpurina (visible) — se borra mediante máscara interna -->
+            <!-- Purpurina (solo dentro del hueco) -->
             <canvas id="glitter" class="layer glitter"></canvas>
 
-            <!-- Brillos (parpadeo) sobre la purpurina -->
+            <!-- Brillos sobre purpurina -->
             <canvas id="shine" class="layer shine" aria-hidden="true"></canvas>
 
-            <!-- Partículas que “saltan” al rascar -->
+            <!-- Purpurina que “salta” -->
             <canvas id="particles" class="layer particles" aria-hidden="true"></canvas>
 
-            <!-- Troquelado (pared + borde) -->
+            <!-- Troquelado: pared + reborde -->
             <canvas id="bevel" class="layer bevel" aria-hidden="true"></canvas>
 
-            <!-- Outline final tras completar -->
+            <!-- Outline final -->
             <canvas id="outline" class="layer outline" aria-hidden="true"></canvas>
           </div>
 

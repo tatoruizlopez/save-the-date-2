@@ -1,5 +1,6 @@
 // =======================================================
-// Save the Date — Troquel + Glitter (rasca y se va) + 3D tilt + partículas
+// Save the Date — Troquel (cavidad clara) + Purpurina (se va al rascar)
+// + Partículas que saltan + 3D tilt (sin oscurecer)
 // =======================================================
 
 // ======= CONFIG =======
@@ -9,48 +10,53 @@ const HORA = "12:00";
 const TEXT_STEP1 = "Pulsa aquí, somos Cris, Elián y Jose.";
 const TEXT_STEP2 = "Tenemos que compartir contigo una cosa…";
 
-// Ultra-real: si existe esta imagen, se usa como textura real
+// Textura real (usa tu imagen)
 const GLITTER_IMAGE_URL = "assets/glitter_tile_gold.jpg";
 
 // Scratch feel
-const BRUSH = 38;              // tamaño del rascado
-const ERASE_ALPHA = 0.90;      // cuanto borra por pasada
-const STAMP_STEP = 0.34;       // distancia entre “estampas”
-const ROUGHNESS = 0.62;        // borde irregular (0..1)
+const BRUSH = 38;
+const ERASE_ALPHA = 0.90;
+const STAMP_STEP = 0.34;
+const ROUGHNESS = 0.62;
 
 // Troquel / profundidad
-const WALL_THICKNESS = 18;     // “pared” interna del hueco (px)
-const RIM_THICKNESS = 3.0;     // borde fino superior
-const PIT_EDGE_DARKEN = 0.28;  // más alto = más sensación de hueco
-const PIT_LIGHT = 0.28;
+const WALL_THICKNESS_PX = 18;     // pared interior (aprox)
+const RIM_THICKNESS = 3.0;        // reborde fino exterior
+const WALL_MAX_DARK = 0.16;       // limite de sombra (no oscuro)
+const CAVITY_EDGE_SHADE = 0.10;   // sombreado suave interior (no oscuro)
+const CAVITY_HIGHLIGHT = 0.20;    // luz interior (mantiene claro)
 
-// Glitter procedural fallback (si no hay imagen)
+// Glitter shading (no oscuro)
+const PIT_EDGE_DARKEN = 0.10;     // muy suave
+const PIT_LIGHT = 0.30;
+
+// Procedural fallback (si la imagen no carga)
 const GLITTER_TILE_SIZE = 360;
-const GLITTER_CHUNKS = 3100;   // grano gordo
+const GLITTER_CHUNKS = 3100;
 const GLITTER_MICRO = 420;
-const GLITTER_SHADOW = 0.20;
+const GLITTER_SHADOW = 0.18;
 
-// Brillos “bling”
+// Brillos
 const SHINE_PERIOD_MS = 860;
 const SHINE_TWINKLES = 28;
 const SHINE_BLING_EVERY_MS = 1500;
 
-// Partículas que saltan
-const EMIT_RATE = 9;           // partículas por “paso”
+// Partículas
+const EMIT_RATE = 9;
 const MAX_PARTICLES = 220;
-const GRAVITY = 980;           // px/s^2
+const GRAVITY = 980;
 const PARTICLE_DRAG = 0.985;
 
-// Completar al quedar poca purpurina
+// Completar
 const FINISH_REMAIN_RATIO = 0.08;
 const COVERAGE_CHECK_MS = 220;
 
-// Popup tras completar
+// Popup
 const POPUP_DELAY_MS = 3000;
 
 // 3D
-const LIGHT_SMOOTH = 0.12;     // suavizado de la luz
-const PARALLAX = 20;           // desplazamiento textura por inclinación
+const LIGHT_SMOOTH = 0.12;
+const PARALLAX = 18;
 // ======================
 
 // DOM
@@ -65,7 +71,6 @@ const caret1 = document.getElementById("caret1");
 const caret2 = document.getElementById("caret2");
 
 const stage = document.getElementById("heartStage");
-const reveal = document.getElementById("heartReveal");
 const hint = document.getElementById("hint");
 const resetBtn = document.getElementById("resetBtn");
 const musicBtn = document.getElementById("musicBtn");
@@ -88,24 +93,26 @@ const outlineCtx = outlineCanvas.getContext("2d");
 const popup = document.getElementById("popup");
 const bgm = document.getElementById("bgm");
 const whoosh = document.getElementById("whoosh");
+
 document.getElementById("hora").textContent = HORA;
 
-// Offscreen: máscara de “purpurina restante”
+// Offscreen: máscara “purpurina restante” (en device px)
 const maskCanvas = document.createElement("canvas");
 const maskCtx = maskCanvas.getContext("2d");
 
-// Offscreen: measure coverage
+// Offscreen: coverage
 const covCanvas = document.createElement("canvas");
 const covCtx = covCanvas.getContext("2d", { willReadFrequently: true });
 
-// Textura glitter
+// Paths
+let hpOuter = null;
+let hpInner = null;
+
+// Texture
 let glitterImg = null;
 let glitterTile = null;
 
-// Path del corazón (en coords CSS px)
-let hp = null;
-
-// Scratch state
+// Scratch
 let drawing = false;
 let last = null;
 let activePointerId = null;
@@ -113,18 +120,15 @@ let touchActive = false;
 let rafPending = false;
 let pendingPoint = null;
 
-// Completion state
+// Completion
 let fullAlphaSum = 0;
 let lastCoverageCheck = 0;
 let celebrated = false;
 let popupTimer = null;
 let popupShown = false;
-
-// Outline state
 let outlineOn = false;
 
 // Shine
-let shineActive = false;
 let shineTwinkles = [];
 let shineLastBling = 0;
 
@@ -135,19 +139,18 @@ let brushStampSize = 0;
 // Particles
 let particles = [];
 
-// 3D light (target + current)
-let lightTarget = { x: -0.6, y: -0.45 };  // default top-left
+// 3D light
+let lightTarget = { x: -0.6, y: -0.45 };
 let light = { x: -0.6, y: -0.45 };
 let lastBevelL = { x: 999, y: 999 };
+let lastTs = 0;
 let dpr = 1;
 
 // Intro step
 let introStep = 0;
 let askedMotionPermission = false;
 
-// =======================================================
-// Helpers
-// =======================================================
+// ---------- Helpers ----------
 function setStatus(msg) {
   if (!musicStatus) return;
   if (!msg) {
@@ -204,7 +207,6 @@ async function playWhoosh() {
   } catch {}
 }
 
-/* POPUP */
 function showPopup() {
   if (!popup || popupShown) return;
   popupShown = true;
@@ -212,12 +214,12 @@ function showPopup() {
   popup.addEventListener("click", hidePopup, { once: true });
   setTimeout(hidePopup, 6000);
 }
+
 function hidePopup() {
   if (!popup) return;
   popup.classList.remove("on");
 }
 
-/* TYPEWRITER */
 function typewriter(el, caretEl, text, speed = 26) {
   if (!el) return Promise.resolve();
   el.textContent = "";
@@ -239,26 +241,20 @@ function typewriter(el, caretEl, text, speed = 26) {
 }
 
 function lerp(a, b, t) { return a + (b - a) * t; }
-
 function getRect() { return stage.getBoundingClientRect(); }
 
 function setCtxToCss(ctx2d) {
-  // coord system in CSS px
   ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-
 function setCtxToDevice(ctx2d) {
-  // coord system in device px
   ctx2d.setTransform(1, 0, 0, 1, 0, 0);
 }
 
-// =======================================================
-// Heart path
-// =======================================================
-function buildHeartPath(w, h) {
+// ---------- Heart paths ----------
+function buildHeartPath(w, h, scale = 1) {
   const cx = w * 0.5;
   const cy = h * 0.55;
-  const size = Math.min(w, h) * 0.58;
+  const size = Math.min(w, h) * 0.58 * scale;
 
   const p = new Path2D();
   p.moveTo(cx, cy + size * 0.35);
@@ -280,17 +276,21 @@ function fitAllCanvases() {
     c.height = h;
   }
 
-  // Set transforms (CSS px coords)
   for (const ctx2d of [baseCtx, glitterCtx, shineCtx, particlesCtx, bevelCtx, outlineCtx, maskCtx]) {
     setCtxToCss(ctx2d);
   }
 
-  hp = buildHeartPath(r.width, r.height);
+  hpOuter = buildHeartPath(r.width, r.height, 1);
+
+  // Inner path: deja pared visible SIEMPRE
+  const m = Math.min(r.width, r.height);
+  const wall = Math.min(WALL_THICKNESS_PX, Math.max(12, m * 0.06));
+  // escala aproximada para “meter” el corazón
+  const innerScale = Math.max(0.86, 1 - (wall / (m * 0.95)));
+  hpInner = buildHeartPath(r.width, r.height, innerScale);
 }
 
-// =======================================================
-// Glitter texture
-// =======================================================
+// ---------- Glitter texture ----------
 function preloadGlitterImage() {
   glitterImg = new Image();
   glitterImg.src = GLITTER_IMAGE_URL;
@@ -315,19 +315,16 @@ function makeGoldGlitterTile(size = GLITTER_TILE_SIZE) {
     const base = pick > 0.92 ? [255,245,220] : pick > 0.62 ? [245,205,110] : [210,160,55];
     const a = 0.10 + Math.random() * 0.40;
 
-    // tiny relief shadow
     g.fillStyle = `rgba(0,0,0,${GLITTER_SHADOW * a})`;
     g.beginPath();
     g.arc(x + r * 0.32, y + r * 0.38, r * 1.08, 0, Math.PI * 2);
     g.fill();
 
-    // flake
     g.fillStyle = `rgba(${base[0]},${base[1]},${base[2]},${a})`;
     g.beginPath();
     g.arc(x, y, r, 0, Math.PI * 2);
     g.fill();
 
-    // highlight
     if (Math.random() > 0.58) {
       g.fillStyle = `rgba(255,255,255,${0.06 + Math.random() * 0.22})`;
       g.beginPath();
@@ -355,21 +352,18 @@ function getGlitterSource() {
   return glitterTile;
 }
 
-// =======================================================
-// Mask init / scratch erase
-// =======================================================
+// ---------- Mask init / scratch erase ----------
 function initMaskFull() {
   const r = getRect();
   const w = r.width;
   const h = r.height;
 
-  // Clear
   maskCtx.clearRect(0, 0, w, h);
 
-  // Fill heart fully opaque
+  // Importante: máscara SOLO en el interior (hpInner)
   maskCtx.save();
   maskCtx.fillStyle = "rgba(0,0,0,1)";
-  maskCtx.fill(hp);
+  maskCtx.fill(hpInner);
   maskCtx.restore();
 }
 
@@ -386,7 +380,6 @@ function ensureBrushStamp() {
   const cy = brushStampSize / 2;
   const rad = brushStampSize * 0.48;
 
-  // radial base alpha
   const rg = g.createRadialGradient(cx, cy, rad * 0.18, cx, cy, rad);
   rg.addColorStop(0.0, "rgba(0,0,0,1)");
   rg.addColorStop(0.60, "rgba(0,0,0,0.88)");
@@ -394,7 +387,6 @@ function ensureBrushStamp() {
   g.fillStyle = rg;
   g.fillRect(0, 0, brushStampSize, brushStampSize);
 
-  // rough edges
   const img = g.getImageData(0, 0, brushStampSize, brushStampSize);
   const d = img.data;
 
@@ -403,7 +395,7 @@ function ensureBrushStamp() {
       const aIdx = (y * brushStampSize + x) * 4 + 3;
       const dx = x - cx;
       const dy = y - cy;
-      const dist = Math.sqrt(dx*dx + dy*dy) / rad; // 0..1
+      const dist = Math.sqrt(dx*dx + dy*dy) / rad;
       if (dist > 1) continue;
 
       const edge = Math.max(0, (dist - 0.55) / 0.45);
@@ -421,7 +413,7 @@ function eraseOnMask(x, y) {
   ensureBrushStamp();
 
   maskCtx.save();
-  maskCtx.clip(hp);
+  maskCtx.clip(hpInner);
   maskCtx.globalCompositeOperation = "destination-out";
   maskCtx.globalAlpha = ERASE_ALPHA;
 
@@ -441,14 +433,14 @@ function eraseStrokeOnMask(a, b) {
 
   for (let i = 0; i <= n; i++) {
     const t = i / n;
-    eraseOnMask(a.x + dx * t, a.y + dy * t);
-    emitGlitterParticles(a.x + dx * t, a.y + dy * t, 1);
+    const x = a.x + dx * t;
+    const y = a.y + dy * t;
+    eraseOnMask(x, y);
+    emitGlitterParticles(x, y, 1);
   }
 }
 
-// =======================================================
-// Troquel base (fondo del hueco)
-// =======================================================
+// ---------- Cavity base (claro, sin oscuro) ----------
 function drawBase() {
   const r = getRect();
   const w = r.width;
@@ -457,63 +449,73 @@ function drawBase() {
 
   baseCtx.clearRect(0, 0, w, h);
 
-  // base: “papel” suave con ruido
+  // Fondo SOLO dentro del hueco interior
   baseCtx.save();
-  baseCtx.clip(hp);
+  baseCtx.clip(hpInner);
 
   const cx = w * 0.5;
   const cy = h * 0.52;
-  const g = baseCtx.createRadialGradient(cx, cy, m*0.06, cx, cy, m*0.68);
-  g.addColorStop(0, "rgba(255,255,255,0.95)");
-  g.addColorStop(0.55, "rgba(250,248,250,0.92)");
-  g.addColorStop(1, "rgba(232,226,236,0.95)");
+
+  // Base crema luminosa
+  const g = baseCtx.createRadialGradient(cx, cy, m*0.05, cx, cy, m*0.72);
+  g.addColorStop(0.0, "rgba(255,254,252,1)");
+  g.addColorStop(0.55, "rgba(250,248,252,1)");
+  g.addColorStop(1.0, "rgba(242,236,246,1)");
   baseCtx.fillStyle = g;
   baseCtx.fillRect(0, 0, w, h);
 
-  // ruido fino
-  baseCtx.globalAlpha = 0.08;
-  for (let i = 0; i < 900; i++) {
+  // Grano papel muy suave
+  baseCtx.globalAlpha = 0.06;
+  for (let i = 0; i < 850; i++) {
     const x = Math.random() * w;
     const y = Math.random() * h;
-    const rr = Math.random() * 1.1 + 0.25;
-    baseCtx.fillStyle = Math.random() > 0.5 ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.9)";
+    const rr = Math.random() * 1.0 + 0.25;
+    baseCtx.fillStyle = Math.random() > 0.5 ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.9)";
     baseCtx.beginPath();
     baseCtx.arc(x, y, rr, 0, Math.PI*2);
     baseCtx.fill();
   }
   baseCtx.globalAlpha = 1;
 
-  // oscurecimiento suave hacia bordes (profundidad)
+  // Sombra interior MUY suave hacia el borde (sin oscurecer)
   baseCtx.globalCompositeOperation = "multiply";
-  const vg = baseCtx.createRadialGradient(cx, cy, m * 0.12, cx, cy, m * 0.72);
-  vg.addColorStop(0.0, "rgba(255,255,255,1)");
-  vg.addColorStop(0.62, "rgba(0,0,0,0.92)");
-  vg.addColorStop(1.0, "rgba(0,0,0,0.86)");
-  baseCtx.fillStyle = vg;
+  const shade = baseCtx.createRadialGradient(cx, cy, m*0.12, cx, cy, m*0.74);
+  shade.addColorStop(0.0, "rgba(255,255,255,1)");
+  shade.addColorStop(0.70, `rgba(0,0,0,${CAVITY_EDGE_SHADE})`);
+  shade.addColorStop(1.0, `rgba(0,0,0,${CAVITY_EDGE_SHADE + 0.04})`);
+  baseCtx.fillStyle = shade;
+  baseCtx.fillRect(0, 0, w, h);
+
+  // Luz interior (screen) para que nunca quede oscuro
+  baseCtx.globalCompositeOperation = "screen";
+  const lx = light.x, ly = light.y;
+  const gx0 = w * 0.5 - lx * w * 0.70;
+  const gy0 = h * 0.5 - ly * h * 0.70;
+  const gx1 = w * 0.5 + lx * w * 0.70;
+  const gy1 = h * 0.5 + ly * h * 0.70;
+
+  const hi = baseCtx.createLinearGradient(gx0, gy0, gx1, gy1);
+  hi.addColorStop(0.0, `rgba(255,255,255,${CAVITY_HIGHLIGHT})`);
+  hi.addColorStop(0.55, "rgba(255,255,255,0.08)");
+  hi.addColorStop(1.0, "rgba(255,255,255,0)");
+  baseCtx.fillStyle = hi;
   baseCtx.fillRect(0, 0, w, h);
 
   baseCtx.globalCompositeOperation = "source-over";
   baseCtx.restore();
 }
 
-// =======================================================
-// Bevel / Troquel wall + rim (3D light)
-// =======================================================
+// ---------- Bevel / wall + rim (3D) ----------
 function drawBevel() {
+  if (Math.abs(light.x - lastBevelL.x) + Math.abs(light.y - lastBevelL.y) < 0.03) return;
+  lastBevelL = { x: light.x, y: light.y };
+
   const r = getRect();
   const w = r.width;
   const h = r.height;
   const m = Math.min(w, h);
 
-  // Redibuja solo si cambia bastante la luz (para rendimiento)
-  if (Math.abs(light.x - lastBevelL.x) + Math.abs(light.y - lastBevelL.y) < 0.03) return;
-  lastBevelL = { x: light.x, y: light.y };
-
   bevelCtx.clearRect(0, 0, w, h);
-
-  // 1) WALL: stroke grueso dentro del clip del corazón
-  bevelCtx.save();
-  bevelCtx.clip(hp);
 
   const lx = light.x, ly = light.y;
   const gx0 = w * 0.5 - lx * w * 0.55;
@@ -521,50 +523,63 @@ function drawBevel() {
   const gx1 = w * 0.5 + lx * w * 0.55;
   const gy1 = h * 0.5 + ly * h * 0.55;
 
-  const wallGrad = bevelCtx.createLinearGradient(gx0, gy0, gx1, gy1);
-  wallGrad.addColorStop(0.0, "rgba(255,255,255,0.55)"); // lado de luz
-  wallGrad.addColorStop(0.35, "rgba(240,230,240,0.55)");
-  wallGrad.addColorStop(1.0, "rgba(35,20,45,0.28)");     // lado sombra
+  // WALL: usamos clip OUTER y pintamos un stroke grande, pero que el hueco interior “recorta”
+  bevelCtx.save();
+  bevelCtx.clip(hpOuter);
 
+  // “Borra” el interior para que quede pared visible (troquel)
+  bevelCtx.save();
+  bevelCtx.globalCompositeOperation = "destination-out";
+  bevelCtx.fillStyle = "rgba(0,0,0,1)";
+  bevelCtx.fill(hpInner);
+  bevelCtx.restore();
+
+  // Pared: gradiente claro -> un poco más oscuro (sin negro)
+  const wallGrad = bevelCtx.createLinearGradient(gx0, gy0, gx1, gy1);
+  wallGrad.addColorStop(0.0, "rgba(255,255,255,0.78)");
+  wallGrad.addColorStop(0.45, "rgba(245,238,248,0.70)");
+  wallGrad.addColorStop(1.0, `rgba(120,95,145,${WALL_MAX_DARK})`);
+
+  bevelCtx.globalCompositeOperation = "source-over";
+  bevelCtx.strokeStyle = wallGrad;
   bevelCtx.lineJoin = "round";
   bevelCtx.lineCap = "round";
-  bevelCtx.strokeStyle = wallGrad;
-  bevelCtx.lineWidth = WALL_THICKNESS * 2; // fuera se recorta por clip -> queda pared interna
-  bevelCtx.globalAlpha = 1.0;
-  bevelCtx.stroke(hp);
+  bevelCtx.lineWidth = Math.max(18, m * 0.10);
+  bevelCtx.stroke(hpOuter);
 
-  // 2) inner shadow fuerte (da sensación de profundidad)
-  bevelCtx.shadowColor = "rgba(0,0,0,0.55)";
-  bevelCtx.shadowBlur = Math.max(12, m * 0.07);
-  bevelCtx.shadowOffsetX = Math.max(7, m * 0.03) * (0.7 + Math.max(0, lx));
-  bevelCtx.shadowOffsetY = Math.max(7, m * 0.03) * (0.7 + Math.max(0, ly));
+  // Sombra interior MUY suave (no oscura)
+  bevelCtx.save();
+  bevelCtx.clip(hpInner);
+  bevelCtx.shadowColor = `rgba(0,0,0,${0.18})`;
+  bevelCtx.shadowBlur = Math.max(10, m * 0.06);
+  bevelCtx.shadowOffsetX = Math.max(5, m * 0.02) * (0.7 + Math.max(0, lx));
+  bevelCtx.shadowOffsetY = Math.max(5, m * 0.02) * (0.7 + Math.max(0, ly));
   bevelCtx.fillStyle = "rgba(0,0,0,0)";
   bevelCtx.fillRect(-w, -h, w*3, h*3);
+  bevelCtx.restore();
 
   bevelCtx.restore();
 
-  // 3) RIM (borde superior fino, por encima de todo)
+  // RIM: borde fino brillante arriba (encima)
   bevelCtx.save();
-  bevelCtx.shadowColor = "rgba(0,0,0,0.18)";
+  bevelCtx.shadowColor = "rgba(0,0,0,0.14)";
   bevelCtx.shadowBlur = Math.max(6, m * 0.02);
   bevelCtx.shadowOffsetX = 0;
   bevelCtx.shadowOffsetY = Math.max(2, m * 0.01);
 
   const rimGrad = bevelCtx.createLinearGradient(gx0, gy0, gx1, gy1);
-  rimGrad.addColorStop(0.0, "rgba(255,255,255,0.75)");
-  rimGrad.addColorStop(0.5, "rgba(255,235,210,0.42)");
-  rimGrad.addColorStop(1.0, "rgba(0,0,0,0.14)");
+  rimGrad.addColorStop(0.0, "rgba(255,255,255,0.85)");
+  rimGrad.addColorStop(0.55, "rgba(255,245,235,0.45)");
+  rimGrad.addColorStop(1.0, "rgba(0,0,0,0.10)");
 
   bevelCtx.lineWidth = RIM_THICKNESS;
   bevelCtx.strokeStyle = rimGrad;
-  bevelCtx.stroke(hp);
+  bevelCtx.stroke(hpOuter);
 
   bevelCtx.restore();
 }
 
-// =======================================================
-// Glitter render (visible) + shine render, both masked
-// =======================================================
+// ---------- Glitter render (solo dentro del hueco interior) ----------
 function drawGlitter(ts) {
   const r = getRect();
   const w = r.width;
@@ -573,14 +588,13 @@ function drawGlitter(ts) {
 
   glitterCtx.clearRect(0, 0, w, h);
 
-  // clip to heart so it looks “inside”
+  // Purpurina SOLO dentro del hueco interior
   glitterCtx.save();
-  glitterCtx.clip(hp);
+  glitterCtx.clip(hpInner);
 
   const src = getGlitterSource();
   const pattern = glitterCtx.createPattern(src, "repeat");
 
-  // drift + parallax from tilt
   const t = ts / 1000;
   const ox = (t * 12 + light.x * PARALLAX);
   const oy = (t * 9  + light.y * PARALLAX);
@@ -591,18 +605,18 @@ function drawGlitter(ts) {
   glitterCtx.fillRect(ox, oy, w, h);
   glitterCtx.restore();
 
-  // deeper edges (feels like “stored in cavity”)
+  // Profundidad MUY suave (no oscuro)
   glitterCtx.globalCompositeOperation = "multiply";
   const cx = w * 0.5;
   const cy = h * 0.52;
-  const vg = glitterCtx.createRadialGradient(cx, cy, m * 0.12, cx, cy, m * 0.74);
+  const vg = glitterCtx.createRadialGradient(cx, cy, m * 0.14, cx, cy, m * 0.72);
   vg.addColorStop(0.0, "rgba(255,255,255,1)");
-  vg.addColorStop(0.60, `rgba(0,0,0,${0.72 + PIT_EDGE_DARKEN})`);
-  vg.addColorStop(1.0, `rgba(0,0,0,${0.62 + PIT_EDGE_DARKEN})`);
+  vg.addColorStop(0.72, `rgba(0,0,0,${0.18 + PIT_EDGE_DARKEN})`);
+  vg.addColorStop(1.0, `rgba(0,0,0,${0.16 + PIT_EDGE_DARKEN})`);
   glitterCtx.fillStyle = vg;
   glitterCtx.fillRect(0, 0, w, h);
 
-  // light gradient aligned to tilt
+  // Luz alineada al tilt (para 3D)
   glitterCtx.globalCompositeOperation = "screen";
   const lx = light.x, ly = light.y;
   const gx0 = w * 0.5 - lx * w * 0.65;
@@ -612,16 +626,15 @@ function drawGlitter(ts) {
 
   const lg = glitterCtx.createLinearGradient(gx0, gy0, gx1, gy1);
   lg.addColorStop(0.0, `rgba(255,255,255,${PIT_LIGHT})`);
-  lg.addColorStop(0.45, "rgba(255,255,255,0.08)");
+  lg.addColorStop(0.45, "rgba(255,255,255,0.10)");
   lg.addColorStop(1.0, "rgba(255,255,255,0)");
   glitterCtx.fillStyle = lg;
   glitterCtx.fillRect(0, 0, w, h);
 
   glitterCtx.globalCompositeOperation = "source-over";
-  glitterCtx.restore(); // end clip
+  glitterCtx.restore();
 
-  // Apply mask: only where glitter remains (and inside heart)
-  // Do in device coords to avoid scaling artifacts
+  // Mascara: solo donde queda purpurina (maskCanvas)
   glitterCtx.save();
   setCtxToDevice(glitterCtx);
   glitterCtx.globalCompositeOperation = "destination-in";
@@ -631,6 +644,7 @@ function drawGlitter(ts) {
   setCtxToCss(glitterCtx);
 }
 
+// ---------- Shine (solo donde queda purpurina) ----------
 function initShineTwinkles() {
   const r = getRect();
   const w = r.width;
@@ -643,7 +657,8 @@ function initShineTwinkles() {
     attempts++;
     const x = Math.random() * w;
     const y = Math.random() * h;
-    if (!shineCtx.isPointInPath(hp, x, y)) continue;
+    // solo dentro del hueco interior
+    if (!shineCtx.isPointInPath(hpInner, x, y)) continue;
 
     shineTwinkles.push({
       x, y,
@@ -683,12 +698,12 @@ function drawShine(ts) {
   const h = r.height;
 
   shineCtx.clearRect(0, 0, w, h);
-  shineCtx.save();
-  shineCtx.clip(hp);
 
-  // sweeping highlight depends on tilt
+  shineCtx.save();
+  shineCtx.clip(hpInner);
+
   const prog = (ts % SHINE_PERIOD_MS) / SHINE_PERIOD_MS;
-  const sweepDir = (light.x * 0.35 + 0.65); // shift sweep based on tilt
+  const sweepDir = (light.x * 0.35 + 0.65);
   const x0 = -w + (w * 2.6) * ((prog * 0.85) + (sweepDir * 0.15));
   const x1 = x0 + w * 1.15;
 
@@ -703,7 +718,6 @@ function drawShine(ts) {
   shineCtx.fillStyle = sweep;
   shineCtx.fillRect(0, 0, w, h);
 
-  // twinkles
   const tsec = ts / 1000;
   for (const t of shineTwinkles) {
     const a = Math.max(0, Math.sin(tsec * t.speed + t.phase));
@@ -711,7 +725,6 @@ function drawShine(ts) {
     drawTwinkleOn(shineCtx, t.x, t.y, t.r, alpha);
   }
 
-  // occasional big bling
   if (ts - shineLastBling > SHINE_BLING_EVERY_MS) {
     shineLastBling = ts;
 
@@ -741,7 +754,7 @@ function drawShine(ts) {
 
   shineCtx.restore();
 
-  // Mask the shine with the remaining glitter (so it disappears where you scratched)
+  // Mascara por “lo que queda”
   shineCtx.save();
   setCtxToDevice(shineCtx);
   shineCtx.globalCompositeOperation = "destination-in";
@@ -751,9 +764,7 @@ function drawShine(ts) {
   setCtxToCss(shineCtx);
 }
 
-// =======================================================
-// Particles “glitter jumps”
-// =======================================================
+// ---------- Particles “glitter jumps” ----------
 function emitGlitterParticles(x, y, strength = 1) {
   if (particles.length > MAX_PARTICLES) return;
 
@@ -766,7 +777,7 @@ function emitGlitterParticles(x, y, strength = 1) {
     const vx = Math.cos(ang) * sp + (Math.random()-0.5)*120;
     const vy = Math.sin(ang) * sp - (Math.random()*240);
 
-    const size = 2.2 + Math.random()*4.0; // “flake”
+    const size = 2.2 + Math.random()*4.0;
     const ttl = 0.55 + Math.random()*0.55;
     const rot = Math.random()*Math.PI*2;
     const vr = (Math.random()-0.5) * 12;
@@ -774,15 +785,7 @@ function emitGlitterParticles(x, y, strength = 1) {
     const goldPick = Math.random();
     const c = goldPick > 0.85 ? [255,245,220] : goldPick > 0.5 ? [245,205,110] : [210,160,55];
 
-    particles.push({
-      x, y,
-      vx, vy,
-      size,
-      rot, vr,
-      t: 0,
-      ttl,
-      c
-    });
+    particles.push({ x, y, vx, vy, size, rot, vr, t: 0, ttl, c });
   }
 }
 
@@ -796,6 +799,7 @@ function stepParticles(dt) {
       particles.splice(i, 1);
       continue;
     }
+
     p.vx *= PARTICLE_DRAG;
     p.vy *= PARTICLE_DRAG;
     p.vy += GRAVITY * dt;
@@ -822,11 +826,9 @@ function drawParticles() {
     particlesCtx.translate(p.x, p.y);
     particlesCtx.rotate(p.rot);
 
-    // flake (rect)
     particlesCtx.fillStyle = `rgba(${p.c[0]},${p.c[1]},${p.c[2]},${0.85})`;
     particlesCtx.fillRect(-p.size, -p.size*0.55, p.size*2, p.size*1.1);
 
-    // highlight
     particlesCtx.globalAlpha = 0.25 * alpha;
     particlesCtx.fillStyle = "rgba(255,255,255,1)";
     particlesCtx.fillRect(-p.size*0.5, -p.size*0.45, p.size, p.size*0.35);
@@ -835,9 +837,7 @@ function drawParticles() {
   }
 }
 
-// =======================================================
-// Outline final
-// =======================================================
+// ---------- Outline final ----------
 function drawOutline() {
   const r = getRect();
   const w = r.width;
@@ -857,24 +857,20 @@ function drawOutline() {
   outlineCtx.lineCap = "round";
   outlineCtx.shadowColor = "rgba(255,255,255,0.85)";
   outlineCtx.shadowBlur = 10;
-  outlineCtx.stroke(hp);
+  outlineCtx.stroke(hpOuter);
   outlineCtx.restore();
 
   outlineCanvas.classList.add("on");
   outlineOn = true;
 }
 
-// =======================================================
-// Coverage detection (how much glitter remains)
-// =======================================================
+// ---------- Coverage detection ----------
 function computeRemainingRatio() {
   const S = 72;
   covCanvas.width = S;
   covCanvas.height = S;
   covCtx.setTransform(1, 0, 0, 1, 0, 0);
   covCtx.clearRect(0, 0, S, S);
-
-  // Downscale mask (alpha encodes remaining)
   covCtx.drawImage(maskCanvas, 0, 0, S, S);
 
   const img = covCtx.getImageData(0, 0, S, S).data;
@@ -901,9 +897,7 @@ function maybeFinish(ts) {
   }
 }
 
-// =======================================================
-// Input
-// =======================================================
+// ---------- Input ----------
 function posFromClient(clientX, clientY) {
   const r = glitterCanvas.getBoundingClientRect();
   return { x: clientX - r.left, y: clientY - r.top };
@@ -926,6 +920,7 @@ function scheduleMove(p) {
   requestAnimationFrame(() => {
     rafPending = false;
     if (!drawing || !last || !pendingPoint) return;
+
     eraseStrokeOnMask(last, pendingPoint);
     last = pendingPoint;
     pendingPoint = null;
@@ -984,42 +979,35 @@ function onTouchEnd(e) {
   endDraw();
 }
 
-// =======================================================
-// 3D light control: DeviceOrientation (mobile) + Mouse (desktop)
-// =======================================================
+// ---------- 3D (DeviceOrientation + Mouse) ----------
 async function requestMotionPermissionIfNeeded() {
   if (askedMotionPermission) return;
   askedMotionPermission = true;
 
-  // iOS needs explicit permission
   const Doe = window.DeviceOrientationEvent;
   if (Doe && typeof Doe.requestPermission === "function") {
     try {
       const res = await Doe.requestPermission();
-      if (res !== "granted") setStatus("Sin permiso de movimiento: el 3D irá con el dedo/ratón.");
+      if (res !== "granted") setStatus("Sin permiso de movimiento: el 3D irá con el ratón.");
     } catch {
-      setStatus("Permiso de movimiento no disponible: el 3D irá con el dedo/ratón.");
+      setStatus("Permiso de movimiento no disponible: el 3D irá con el ratón.");
     }
   }
 }
 
 function installOrientationListener() {
   window.addEventListener("deviceorientation", (e) => {
-    // gamma (-90..90) left/right, beta (-180..180) front/back
-    const g = (e.gamma ?? 0) / 45; // ~[-2..2]
+    const g = (e.gamma ?? 0) / 45;
     const b = (e.beta ?? 0) / 45;
 
-    // clamp to [-1,1]
     const x = Math.max(-1, Math.min(1, g));
     const y = Math.max(-1, Math.min(1, b));
 
-    // Invert y so “tilt up” lights from top
-    lightTarget = { x: x, y: -y };
+    lightTarget = { x: x * 0.9, y: -y * 0.9 };
   }, { passive: true });
 }
 
 function installMouseLight() {
-  // Mouse moves = “tilt”
   stage.addEventListener("mousemove", (e) => {
     const r = stage.getBoundingClientRect();
     const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
@@ -1031,9 +1019,7 @@ function installMouseLight() {
   });
 }
 
-// =======================================================
-// Reset / init
-// =======================================================
+// ---------- Reset ----------
 function resetAll() {
   touchActive = false;
   activePointerId = null;
@@ -1060,7 +1046,7 @@ function resetAll() {
   fitAllCanvases();
   initMaskFull();
 
-  // baseline for coverage
+  // Baseline alpha sum
   const S = 72;
   covCanvas.width = S;
   covCanvas.height = S;
@@ -1071,23 +1057,16 @@ function resetAll() {
   for (let i = 3; i < base.length; i += 4) sum += base[i];
   fullAlphaSum = Math.max(1, sum);
 
-  // base of the cavity
   drawBase();
-
-  // init shine points
   initShineTwinkles();
   shineLastBling = 0;
-
-  // force bevel redraw on first frame
   lastBevelL = { x: 999, y: 999 };
 
   updateMusicBtn();
   setStatus("");
 }
 
-// =======================================================
-// Intro flow
-// =======================================================
+// ---------- Intro ----------
 async function toStep0Initial() {
   introMsg1.classList.add("show");
   await typewriter(type1, caret1, TEXT_STEP1, 22);
@@ -1126,10 +1105,7 @@ function onIntroTap(e) {
   else toStep2();
 }
 
-// =======================================================
-// Main render loop
-// =======================================================
-let lastTs = 0;
+// ---------- Loop ----------
 function loop(ts) {
   const r = getRect();
   if (!r.width || !r.height) {
@@ -1137,18 +1113,17 @@ function loop(ts) {
     return;
   }
 
-  // smooth light
   light.x = lerp(light.x, lightTarget.x, LIGHT_SMOOTH);
   light.y = lerp(light.y, lightTarget.y, LIGHT_SMOOTH);
 
-  // troquel (bevel) depends on light
+  // Troquel y cavidad: redraw con luz
   drawBevel();
+  drawBase();
 
-  // draw layers
+  // Capas
   drawGlitter(ts);
   drawShine(ts);
 
-  // particles
   const dt = lastTs ? Math.min(0.05, (ts - lastTs) / 1000) : 0.016;
   lastTs = ts;
   stepParticles(dt);
@@ -1157,15 +1132,12 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
-// =======================================================
-// Setup
-// =======================================================
+// ---------- Setup ----------
 function setup() {
   preloadGlitterImage();
   installOrientationListener();
   installMouseLight();
 
-  // Events
   intro.addEventListener("click", onIntroTap);
   intro.addEventListener("touchend", onIntroTap, { passive: false });
   intro.addEventListener("keydown", (e) => {
@@ -1191,7 +1163,6 @@ function setup() {
     else { bgm.pause(); updateMusicBtn(); }
   });
 
-  // init
   resetAll();
   toStep0Initial();
   updateMusicBtn();

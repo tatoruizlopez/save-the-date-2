@@ -251,7 +251,14 @@ h1{
 .shine{ z-index:4; pointer-events:none; mix-blend-mode: screen; }
 .particles{ z-index:5; pointer-events:none; }
 .bevel{ z-index:6; pointer-events:none; }
-.outline{ z-index:7; pointer-events:none; mix-blend-mode: screen; opacity:0; transform: scale(0.98); transition: opacity 380ms ease, transform 380ms ease; }
+.outline{
+  z-index:7;
+  pointer-events:none;
+  mix-blend-mode: screen;
+  opacity:0;
+  transform: scale(0.98);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
 .outline.on{ opacity:1; transform: scale(1); }
 
 .heart-reveal{
